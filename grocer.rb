@@ -1,57 +1,50 @@
-require_relative 'grocer'
-
-def items
-	[
-		{"AVOCADO" => {:price => 3.00, :clearance => true}},
-		{"KALE" => {:price => 3.00, :clearance => false}},
-		{"BLACK_BEANS" => {:price => 2.50, :clearance => false}},
-		{"ALMONDS" => {:price => 9.00, :clearance => false}},
-		{"TEMPEH" => {:price => 3.00, :clearance => true}},
-		{"CHEESE" => {:price => 6.50, :clearance => false}},
-		{"BEER" => {:price => 13.00, :clearance => false}},
-		{"PEANUTBUTTER" => {:price => 3.00, :clearance => true}},
-		{"BEETS" => {:price => 2.50, :clearance => false}}
-	]
+def consolidate_cart(cart)
+  cart.each_with_object({}) do |item, result|
+    item.each do |type, attributes|
+      if result[type]
+        attributes[:count] += 1
+      else
+        attributes[:count] = 1
+        result[type] = attributes
+      end
+    end
+  end
 end
 
-def coupons
-	[
-		{:item => "AVOCADO", :num => 2, :cost => 5.00},
-		{:item => "BEER", :num => 2, :cost => 20.00},
-		{:item => "CHEESE", :num => 3, :cost => 15.00}
-	]
+def apply_coupons(cart, coupons)
+  coupons.each do |coupon|
+    name = coupon[:item]
+    if cart[name] && cart[name][:count] >= coupon[:num]
+      if cart["#{name} W/COUPON"]
+        cart["#{name} W/COUPON"][:count] += 1
+      else
+        cart["#{name} W/COUPON"] = {:count => 1, :price => coupon[:cost]}
+        cart["#{name} W/COUPON"][:clearance] = cart[name][:clearance]
+      end
+      cart[name][:count] -= coupon[:num]
+    end
+  end
+  cart
 end
 
-def generate_cart
-	[].tap do |cart|
-		rand(20).times do
-			cart.push(items.sample)
-		end
-	end
+def apply_clearance(cart)
+  cart.each do |name, properties|
+    if properties[:clearance]
+      updated_price = properties[:price] * 0.80
+      properties[:price] = updated_price.round(2)
+    end
+  end
+  cart
 end
 
-def generate_coupons
-	[].tap do |c|
-		rand(2).times do
-			c.push(coupons.sample)
-		end
-	end
+def checkout(cart, coupons)
+  consolidated_cart = consolidate_cart(cart)
+  couponed_cart = apply_coupons(consolidated_cart, coupons)
+  final_cart = apply_clearance(couponed_cart)
+  total = 0
+  final_cart.each do |name, properties|
+    total += properties[:price] * properties[:count]
+  end
+  total = total * 0.9 if total > 100
+  total
 end
-
-cart = generate_cart
-coupons = generate_coupons
-
-puts "Items in cart"
-cart.each do |item|
-	puts "Item: #{item.keys.first}"
-	puts "Price: #{item[item.keys.first][:price]}"
-	puts "Clearance: #{item[item.keys.first][:clearance]}"
-	puts "=" * 10
-end
-
-puts "Coupons on hand"
-coupons.each do |coupon|
-	puts "Get #{coupon[:item].capitalize} for #{coupon[:cost]} when you by #{coupon[:num]}"
-end
-
-puts "Your total is #{checkout(cart: cart, coupons: coupons)}"
